@@ -32,18 +32,19 @@ bool operator<(const Edge& a, const Edge& b) { // operator for MIN priority_queu
     }
     return a.weight > b.weight;
 }
-std::map<int, std::vector<Edge>> graph_edges;
+std::map<int, std::map<int, Edge>> graph_edges;
 
 struct Verticle {
     int id;
     unsigned int max_weight;
     unsigned int bvalue;
     std::priority_queue<Edge *, std::vector<Edge *>, Edge::PointerComparator> S;
+    std::map<int, unsigned int> T;
 
     explicit Verticle(int id, unsigned int b_val) : id(id), bvalue(b_val) {
         max_weight = 0;
         for (auto it = graph_edges[id].begin(); it != graph_edges[id].end(); ++it) {
-            max_weight = (*it).weight > max_weight ? (*it).weight : max_weight;
+            max_weight = it->second.weight > max_weight ? it->second.weight : max_weight;
         }
     }
 
@@ -59,6 +60,7 @@ struct Verticle {
 };
 std::map<int, Verticle> graph_vert;
 std::priority_queue<Verticle *, std::vector<Verticle *>, Verticle::PointerComparator> Q;
+std::queue<Verticle *> R;
 
 void parseFile(std::string &input_filename) {
     std::ifstream file;
@@ -77,8 +79,8 @@ void parseFile(std::string &input_filename) {
                 file >> id_fvert >> id_svert >> weight;
                 file.ignore();
 
-                graph_edges[id_fvert].push_back(Edge(id_svert, weight));
-                graph_edges[id_svert].push_back(Edge(id_fvert, weight));
+                graph_edges[id_fvert].emplace(id_svert, Edge(id_svert, weight));
+                graph_edges[id_svert].emplace(id_fvert, Edge(id_fvert, weight));
             }
             else {
                 file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -97,17 +99,17 @@ inline void prepareQueue(int b_method) {
     }
 }
 
-std::vector<Edge>::iterator findMaxEdge(int id) {
-    std::vector<Edge>::iterator eligible = graph_edges[id].begin();
+std::map<int, Edge>::iterator findMaxEdge(int id) {
+    std::map<int, Edge>::iterator eligible = graph_edges[id].begin();
     bool found = false;
 
     for (auto it = graph_edges[id].begin(); it != graph_edges[id].end(); ++it) {
-        if (!it->used) {
-            auto v = graph_vert.find(it->v);
-            if (v != graph_vert.end() && v->second.hasLast() && (*it) < (*v->second.S.top())) {
+        if (!it->second.used) {
+            auto v = graph_vert.find(it->second.v);
+            if (v != graph_vert.end() && v->second.hasLast() && it->second < *(v->second.S.top())) {
                 continue;
             }
-            if (eligible->weight <= it->weight) {
+            if (eligible->second.weight <= it->second.weight) {
                 eligible = it;
                 found = true;
             }
@@ -128,23 +130,52 @@ void sequentialAlgorithm(int b_method) {
         debug << vert->id << " " << vert->bvalue << std::endl;
 
         while (vert->S.size() < vert->bvalue) {
-            auto x = findMaxEdge(vert->id);
-            if (x == graph_edges[vert->id].end()) {
+            auto x_it = findMaxEdge(vert->id);
+            if (x_it == graph_edges[vert->id].end()) {
                 break;
             }
             else {
-                vert->S.push(&(*x));
-                x->used = true;
-                auto& to_propose = graph_vert.find(x->v)->second;
+                auto& x = x_it->second;
+                vert->S.push(&x);
+                vert->T.insert(std::make_pair(x.v, x.weight));
+                x.used = true;
+                auto& to_propose = graph_vert.find(x.v)->second;
                 auto& suitors = to_propose.S;
                 if (to_propose.hasLast()) {
-                    auto y = suitors.top();
+                    auto& y = graph_vert.find(suitors.top()->v)->second;
+                    y.T.erase(to_propose.id);
+                    R.push(&y);
                     suitors.pop();
-                    suitors.push()
                 }
+                suitors.push(&(graph_edges.find(x.v)->second.find(vert->id)->second));
+            }
+        }
+
+        if (Q.empty()) {
+            while (!R.empty()) {
+                Q.push(R.front());
+                R.pop();
             }
         }
     }
+
+    debug << std::endl;
+    unsigned int res = 0;
+    for (auto it = graph_vert.begin(); it != graph_vert.end(); ++it) {
+        std::cout << it->first << ":\n";
+        for (auto m_it = it->second.T.begin(); m_it != it->second.T.end(); ++m_it) {
+            std::cout << " " << m_it->first << " " << m_it->second << "\n";
+            res += m_it->second;
+        }
+        /*while (!it->second.S.empty()) {
+            unsigned int top_weight = it->second.S.top()->weight;
+            std::cout << " " << it->second.S.top()->v << " " << top_weight << "\n";
+            res += top_weight;
+            it->second.S.pop();
+        }*/
+    }
+
+    std::cout << "RES: " << res << std::endl;
 
     graph_vert.clear();
 }
