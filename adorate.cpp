@@ -124,7 +124,7 @@ void sequentialAlgorithm(int b_method) {
         auto vert = Q.top();
         Q.pop();
 
-        debug << vert->id << " " << vert->bvalue << std::endl;
+        //debug << vert->id << " " << vert->bvalue << std::endl;
 
         while (vert->S.size() < vert->bvalue) {
             auto x_it = findMaxEdge(vert->id);
@@ -133,7 +133,7 @@ void sequentialAlgorithm(int b_method) {
             }
             else {
                 auto& x = x_it->second;
-                debug << " size=" << vert->S.size() << ", x=" << x.v;
+                //debug << " size=" << vert->S.size() << ", x=" << x.v;
                 vert->S.push(&x_it->second);
                 vert->T.insert(std::make_pair(x.v, x.weight));
                 x.used = true;
@@ -141,14 +141,14 @@ void sequentialAlgorithm(int b_method) {
                 auto& suitors = to_propose.S;
                 if (to_propose.hasLast()) {
                     auto& y = graph_vert.find(suitors.top()->v)->second;
-                    debug << ", y=" << y.id;
+                    //debug << ", y=" << y.id;
                     y.T.erase(to_propose.id);
                     graph_edges.find(y.id)->second.find(x.v)->second.used = false;
                     R.push(&y);
                     suitors.pop();
                 }
                 suitors.push(&(graph_edges.find(x.v)->second.find(vert->id)->second));
-                debug << std::endl;
+                //debug << std::endl;
             }
         }
 
@@ -160,12 +160,12 @@ void sequentialAlgorithm(int b_method) {
         }
     }
 
-    debug << std::endl;
+    //debug << std::endl;
     unsigned int res = 0;
     for (auto it = graph_vert.begin(); it != graph_vert.end(); ++it) {
-        std::cout << it->first << ":\n";
+        //std::cout << it->first << ":\n";
         for (auto m_it = it->second.T.begin(); m_it != it->second.T.end(); ++m_it) {
-            std::cout << " " << m_it->first << " " << m_it->second << "\n";
+            //std::cout << " " << m_it->first << " " << m_it->second << "\n";
             res += m_it->second;
         }
         /*while (!it->second.S.empty()) {
@@ -176,7 +176,8 @@ void sequentialAlgorithm(int b_method) {
         }*/
     }
 
-    std::cout << "RES: " << res << std::endl;
+    //std::cout << "RES: " << res << std::endl;
+    std::cout << res << std::endl;
 
     graph_vert.clear();
 }
@@ -196,8 +197,9 @@ int main(int argc, char* argv[]) {
         // this is just to show the blimit with which the program is linked
         //std::cerr << "bvalue node 44: " << bvalue(b_method, 44) << std::endl;
 
+        std::cerr << "B = " << b_method << std::endl;
         sequentialAlgorithm(b_method);
-        debug << std::endl;
+        //debug << std::endl;
 
         // TODO: implement b-adorators here
 
