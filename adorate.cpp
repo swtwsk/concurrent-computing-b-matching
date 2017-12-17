@@ -27,10 +27,9 @@ void parseFile(std::string &input_filename) {
     file.open(input_filename, std::ifstream::in);
 
     if (file.is_open()) {
-        debug << input_filename << " has been opened\n";
         char c;
-        while (file.get(c)) {
 
+        while (file.get(c)) {
             if (c != '#') {
                 file.unget();
                 unsigned int id_fvert;
@@ -38,6 +37,8 @@ void parseFile(std::string &input_filename) {
                 unsigned int weight;
 
                 file >> id_fvert >> id_svert >> weight;
+                file.ignore();
+
                 V[id_fvert].push_back(Edge(id_svert, weight));
                 V[id_svert].push_back(Edge(id_fvert, weight));
 
