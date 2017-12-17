@@ -19,18 +19,15 @@ struct Edge {
 
     struct PointerComparator {
         bool operator() (Edge*a, Edge*b) {
-            if (a->weight == b->weight) {
-                return a->v > b->v;
-            }
-            return a->weight > b->weight;
+            return a->weight == b->weight ? (a->v < b->v) : (a->weight < b->weight);
         }
     };
 };
 bool operator<(const Edge& a, const Edge& b) { // operator for MIN priority_queue
     if (a.weight == b.weight) {
-        return a.v > b.v;
+        return a.v < b.v;
     }
-    return a.weight > b.weight;
+    return a.weight < b.weight;
 }
 std::map<int, std::map<int, Edge>> graph_edges;
 
@@ -136,18 +133,22 @@ void sequentialAlgorithm(int b_method) {
             }
             else {
                 auto& x = x_it->second;
-                vert->S.push(&x);
+                debug << " size=" << vert->S.size() << ", x=" << x.v;
+                vert->S.push(&x_it->second);
                 vert->T.insert(std::make_pair(x.v, x.weight));
                 x.used = true;
                 auto& to_propose = graph_vert.find(x.v)->second;
                 auto& suitors = to_propose.S;
                 if (to_propose.hasLast()) {
                     auto& y = graph_vert.find(suitors.top()->v)->second;
+                    debug << ", y=" << y.id;
                     y.T.erase(to_propose.id);
+                    graph_edges.find(y.id)->second.find(x.v)->second.used = false;
                     R.push(&y);
                     suitors.pop();
                 }
                 suitors.push(&(graph_edges.find(x.v)->second.find(vert->id)->second));
+                debug << std::endl;
             }
         }
 
