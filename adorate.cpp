@@ -16,6 +16,15 @@ struct Edge {
     bool used;
 
     explicit Edge(int v, unsigned int weight) : v(v), weight(weight), used(false) {};
+
+    struct PointerComparator {
+        bool operator() (Edge*a, Edge*b) {
+            if (a->weight == b->weight) {
+                return a->v > b->v;
+            }
+            return a->weight > b->weight;
+        }
+    };
 };
 bool operator<(const Edge& a, const Edge& b) { // operator for MIN priority_queue
     if (a.weight == b.weight) {
@@ -29,7 +38,7 @@ struct Verticle {
     int id;
     unsigned int max_weight;
     unsigned int bvalue;
-    std::priority_queue<Edge> S;
+    std::priority_queue<Edge *, std::vector<Edge *>, Edge::PointerComparator> S;
 
     explicit Verticle(int id, unsigned int b_val) : id(id), bvalue(b_val) {
         max_weight = 0;
@@ -41,12 +50,15 @@ struct Verticle {
     bool hasLast() {
         return S.size() == bvalue;
     }
+
+    struct PointerComparator {
+        bool operator() (Verticle* a, Verticle* b) {
+            return a->max_weight < b->max_weight;
+        }
+    };
 };
-bool operator<(const Verticle& a, const Verticle& b) {
-    return a.max_weight < b.max_weight;
-}
 std::map<int, Verticle> graph_vert;
-std::priority_queue<Verticle *> Q;
+std::priority_queue<Verticle *, std::vector<Verticle *>, Verticle::PointerComparator> Q;
 
 void parseFile(std::string &input_filename) {
     std::ifstream file;
@@ -85,16 +97,21 @@ inline void prepareQueue(int b_method) {
     }
 }
 
-std::vector<Edge>::iterator findMaxVerticle(int id) {
-    std::vector<Edge>::iterator eligible = graph_edges[id].begin(); // weight, v
+std::vector<Edge>::iterator findMaxEdge(int id) {
+    std::vector<Edge>::iterator eligible = graph_edges[id].begin();
     bool found = false;
 
     for (auto it = graph_edges[id].begin(); it != graph_edges[id].end(); ++it) {
-        if (!(*it).used) {
-            if ((*eligible).weight <= (*it).weight) {
+        if (!it->used) {
+            auto v = graph_vert.find(it->v);
+            if (v != graph_vert.end() && v->second.hasLast() && (*it) < (*v->second.S.top())) {
+                continue;
+            }
+            if (eligible->weight <= it->weight) {
                 eligible = it;
                 found = true;
             }
+
         }
     }
 
@@ -108,17 +125,17 @@ void sequentialAlgorithm(int b_method) {
         auto vert = Q.top();
         Q.pop();
 
-        //debug << vert.id << " " << vert.bvalue << std::endl;
+        debug << vert->id << " " << vert->bvalue << std::endl;
 
         while (vert->S.size() < vert->bvalue) {
-            auto x = findMaxVerticle(vert->id);
+            auto x = findMaxEdge(vert->id);
             if (x == graph_edges[vert->id].end()) {
                 break;
             }
             else {
-                vert->S.push((*x));
-                (*x).used = true;
-                auto& to_propose = graph_vert[(*x).v];
+                vert->S.push(&(*x));
+                x->used = true;
+                auto& to_propose = graph_vert.find(x->v)->second;
                 auto& suitors = to_propose.S;
                 if (to_propose.hasLast()) {
                     auto y = suitors.top();
@@ -128,6 +145,8 @@ void sequentialAlgorithm(int b_method) {
             }
         }
     }
+
+    graph_vert.clear();
 }
 
 int main(int argc, char* argv[]) {
@@ -143,13 +162,14 @@ int main(int argc, char* argv[]) {
 
     for (int b_method = 0; b_method < b_limit + 1; b_method++) {
         // this is just to show the blimit with which the program is linked
-        std::cerr << "bvalue node 44: " << bvalue(b_method, 44) << std::endl;
+        //std::cerr << "bvalue node 44: " << bvalue(b_method, 44) << std::endl;
 
         sequentialAlgorithm(b_method);
+        debug << std::endl;
 
         // TODO: implement b-adorators here
 
         // fake result
-        std::cout << 42 << std::endl;
+        //std::cout << 42 << std::endl;
     }
 }
