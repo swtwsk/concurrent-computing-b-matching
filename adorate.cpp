@@ -8,14 +8,18 @@
 #include <map>
 #include <set>
 #include <limits>
+#include <algorithm>
 
 #define debug std::cout
 
-struct Edge {
-    int to;
-    unsigned int weight;
+using VerticleType = int;
+using WeightType = unsigned int;
 
-    explicit Edge(int to, unsigned int weight) : to(to), weight(weight) {};
+struct Edge {
+    VerticleType to;
+    WeightType weight;
+
+    explicit Edge(VerticleType to, WeightType weight) : to(to), weight(weight) {};
 
     bool operator<(const Edge& other) {
         return weight == other.weight ? to < other.to : weight < other.weight;
@@ -23,17 +27,17 @@ struct Edge {
 
     struct Comparator {
         constexpr bool operator() (const Edge& a, const Edge& b) const {
-            return a.weight == b.weight ? a.to < b.to : a.weight < b.weight;
+            return a.weight == b.weight ? a.to > b.to : a.weight > b.weight;
         }
     };
 };
 
 struct Verticle {
     std::vector<Edge> edges;
-    std::set<int> T;
+    std::set<VerticleType> T;
     std::priority_queue<Edge, std::vector<Edge>, Edge::Comparator> S;
 
-    unsigned int max_weight;
+    WeightType max_weight;
     unsigned int b_value;
 
     void findMaxWeight() {
@@ -48,25 +52,26 @@ struct Verticle {
     }
 };
 
-std::map<int, Verticle> graph; // graph representation
-std::vector<int> V; // sorted verticles
+std::map<VerticleType, Verticle> graph; // graph representation
+std::vector<VerticleType> V; // sorted verticles
 
-bool compareVerticles (const int a, const int b) {
+bool compareVerticles (const VerticleType a, const VerticleType b) {
     return graph[a].max_weight > graph[b].max_weight;
 }
 
-int findX(int id) {
-    Edge eligible = Edge(-1, 0);
-    int x = -1;
+inline bool compareEdges(const Edge& u_v, const Edge& v_last, int u) {
+    return u_v.weight == v_last.weight ? u < v_last.to : u_v.weight < v_last.weight;
+}
 
-    //debug << " findX:\n";
+int findX(VerticleType id) {
+    Edge eligible = Edge(-1, 0);
+    VerticleType x = -1;
+
     for (auto i = 0; i < graph[id].edges.size(); ++i) {
         auto& edge = graph[id].edges[i];
 
-        //debug << edge.to;
         if (graph[id].T.find(edge.to) == graph[id].T.end()) {
-            //debug << "+ eli:" << eligible.weight << ", edg:" << edge.weight << "\n";
-            if (graph[edge.to].hasLast() && edge < graph[edge.to].S.top()) {
+            if (graph[edge.to].hasLast() && compareEdges(edge, graph[edge.to].S.top(), id)) {
                 continue;
             }
             if (eligible.weight < edge.weight) {
@@ -74,14 +79,12 @@ int findX(int id) {
                 x = i;
             }
         }
-        //debug << " ";
     }
-    //debug << x << std::endl;
 
     return x;
 }
 
-void sequentialAlgorithm(unsigned int b_method) {
+unsigned int sequentialAlgorithm(unsigned int b_method) {
     std::queue<int> Q;
     std::queue<int> R;
 
@@ -94,25 +97,26 @@ void sequentialAlgorithm(unsigned int b_method) {
         auto u = Q.front();
         Q.pop();
 
-        //debug << u << " " << graph[u].b_value << std::endl;
-
-        auto& u_vert = graph[u];
-
-        while (u_vert.T.size() < u_vert.b_value) {
+        while (graph[u].T.size() < graph[u].b_value) {
             auto x_id = findX(u);
             if (x_id < 0) {
                 break;
             }
-            else {
-                auto x = u_vert.edges[x_id].to;
+            else { // makeSuitor(u, x)
+                auto x = graph[u].edges[x_id].to;
+                int y = -1;
                 if (graph[x].hasLast()) {
-                    auto y = graph[x].S.top();
+                    y = graph[x].S.top().to;
                     graph[x].S.pop();
-                    u_vert.T.erase(y.to);
-                    R.push(y.to);
                 }
-                graph[x].S.push(Edge(u, u_vert.edges[x_id].weight));
-                u_vert.T.insert(x);
+
+                graph[x].S.push(Edge(u, graph[u].edges[x_id].weight));
+                graph[u].T.insert(x);
+
+                if (y < 0) {
+                    graph[y].T.erase(x);
+                    R.push(y);
+                }
             }
         }
 
@@ -124,19 +128,31 @@ void sequentialAlgorithm(unsigned int b_method) {
         }
     }
 
+    unsigned int res = 0;
+
     for (auto& v : graph) {
-        debug << v.first << ": ";
+        /*debug << v.first << ":\n T: ";
         for (auto t : v.second.T) {
-            debug << t << " ";
+            debug << "(" << t.first << ", " << t.second << "); ";
         }
-        debug << std::endl;
+        debug << "\n S: ";*/
+        while (!v.second.S.empty()) {
+            //debug << v.second.S.top().to << " ";
+            res += v.second.S.top().weight;
+            v.second.S.pop();
+        }
+        //debug << std::endl;
         v.second.T.clear();
     }
+
+    debug << res / 2 << std::endl;
+
+    return res / 2;
 
     //debug << "Done" << std::endl;
 }
 
-inline void createVerticle(int id) {
+inline void createVerticle(VerticleType id) {
     if (graph.find(id) == graph.end()) {
         graph.insert(std::make_pair(id, Verticle()));
     }
@@ -152,9 +168,9 @@ void parseFile(std::string &input_filename) {
         while (file.get(c)) {
             if (c != '#') {
                 file.unget();
-                int id_fvert;
-                int id_svert;
-                unsigned int weight;
+                VerticleType id_fvert;
+                VerticleType id_svert;
+                WeightType weight;
 
                 file >> id_fvert >> id_svert >> weight;
                 file.ignore();
