@@ -43,12 +43,12 @@ struct Verticle {
     WeightType max_weight;
     unsigned int b_value;
 
-    void findMaxWeight() {
+    /*void findMaxWeight() {
         max_weight = 0;
         for (auto& edge : edges) {
             max_weight = edge.weight > max_weight ? edge.weight : max_weight;
         }
-    }
+    }*/
 
     bool hasLast() {
         return S.size() == b_value;
@@ -187,8 +187,9 @@ void parseFile(std::string &input_filename) {
         }
 
         for (auto& v : graph) {
-            v.second.findMaxWeight();
+            //v.second.findMaxWeight();
             std::sort(v.second.edges.begin(), v.second.edges.end(), compareEdgesForSort);
+            v.second.max_weight = v.second.edges.begin()->weight;
             V.push_back(v.first);
         }
 
