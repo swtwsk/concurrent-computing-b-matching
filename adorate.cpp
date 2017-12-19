@@ -24,7 +24,7 @@ struct Edge {
 
     explicit Edge(VerticleType to, WeightType weight) : to(to), weight(weight) {};
 
-    bool operator<(const Edge& other) {
+    constexpr bool operator<(const Edge& other) {
         return weight == other.weight ? to < other.to : weight < other.weight;
     }
 
@@ -42,13 +42,6 @@ struct Verticle {
 
     WeightType max_weight;
     unsigned int b_value;
-
-    /*void findMaxWeight() {
-        max_weight = 0;
-        for (auto& edge : edges) {
-            max_weight = edge.weight > max_weight ? edge.weight : max_weight;
-        }
-    }*/
 
     bool hasLast() {
         return S.size() == b_value;
@@ -70,7 +63,7 @@ inline bool compareEdges(const Edge& u_v, const Edge& v_last, int u) {
     return u_v.weight == v_last.weight ? u < v_last.to : u_v.weight < v_last.weight;
 }
 
-int findX(VerticleType id) {
+inline int findX(VerticleType id) {
     Edge eligible = Edge(-1, 0);
     VerticleType x = -1;
 
@@ -145,7 +138,7 @@ unsigned int sequentialAlgorithm(unsigned int b_method) {
         v.second.T.clear();
     }
 
-    debug << res / 2 << std::endl;
+    std::cout << res / 2 << std::endl;
 
     return res / 2;
 
