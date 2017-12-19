@@ -63,7 +63,7 @@ bool compareVerticles (const VerticleType a, const VerticleType b) {
 }
 
 bool compareEdgesForSort(const Edge& a, const Edge& b) {
-    return a.weight < b.weight;
+    return a.weight > b.weight;
 }
 
 inline bool compareEdges(const Edge& u_v, const Edge& v_last, int u) {
