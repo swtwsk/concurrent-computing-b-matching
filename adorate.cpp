@@ -1,5 +1,3 @@
-#include "blimit.hpp"
-
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -9,6 +7,11 @@
 #include <set>
 #include <limits>
 #include <algorithm>
+
+#include <thread>
+#include <mutex>
+
+#include "blimit.hpp"
 
 #define debug std::cout
 
@@ -57,6 +60,10 @@ std::vector<VerticleType> V; // sorted verticles
 
 bool compareVerticles (const VerticleType a, const VerticleType b) {
     return graph[a].max_weight > graph[b].max_weight;
+}
+
+bool compareEdgesForSort(const Edge& a, const Edge& b) {
+    return a.weight < b.weight;
 }
 
 inline bool compareEdges(const Edge& u_v, const Edge& v_last, int u) {
@@ -181,6 +188,7 @@ void parseFile(std::string &input_filename) {
 
         for (auto& v : graph) {
             v.second.findMaxWeight();
+            std::sort(v.second.edges.begin(), v.second.edges.end(), compareEdgesForSort);
             V.push_back(v.first);
         }
 
