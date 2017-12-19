@@ -71,10 +71,10 @@ int findX(VerticleType id) {
         auto& edge = graph[id].edges[i];
 
         if (graph[id].T.find(edge.to) == graph[id].T.end()) {
-            if (graph[edge.to].hasLast() && compareEdges(edge, graph[edge.to].S.top(), id)) {
+            if (graph[edge.to].hasLast() && compareEdges(edge, graph[edge.to].S.top(), id)) {//edge < graph[edge.to].S.top()) {//
                 continue;
             }
-            if (eligible.weight < edge.weight) {
+            if (eligible < edge) {
                 eligible = edge;
                 x = i;
             }
@@ -113,7 +113,7 @@ unsigned int sequentialAlgorithm(unsigned int b_method) {
                 graph[x].S.push(Edge(u, graph[u].edges[x_id].weight));
                 graph[u].T.insert(x);
 
-                if (y < 0) {
+                if (y >= 0) {
                     graph[y].T.erase(x);
                     R.push(y);
                 }
