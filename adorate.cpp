@@ -51,6 +51,15 @@ struct Verticle {
 std::map<VerticleType, Verticle> graph; // graph representation
 std::vector<VerticleType> V; // sorted verticles
 
+// Queues
+std::queue<int> Q;
+std::queue<int> R;
+
+// Mutexes
+std::map<VerticleType, std::mutex> verticleMutexes;
+std::mutex Qmutex;
+std::mutex Gmutex;
+
 bool compareVerticles (const VerticleType a, const VerticleType b) {
     return graph[a].max_weight > graph[b].max_weight;
 }
@@ -66,6 +75,8 @@ inline bool compareEdges(const Edge& u_v, const Edge& v_last, int u) {
 inline int findX(VerticleType id) {
     Edge eligible = Edge(-1, 0);
     VerticleType x = -1;
+
+    std::lock_guard<std::mutex> lock(Gmutex);
 
     for (auto i = 0; i < graph[id].edges.size(); ++i) {
         auto& edge = graph[id].edges[i];
@@ -84,10 +95,115 @@ inline int findX(VerticleType id) {
     return x;
 }
 
-unsigned int sequentialAlgorithm(unsigned int b_method) {
-    std::queue<int> Q;
-    std::queue<int> R;
+inline bool stillEligible(VerticleType id, VerticleType x_it) {
+    auto x = graph[id].edges[x_it];
+    if (graph[id].T.find(x.to) != graph[id].T.end()) {
+        return false;
+    }
+    if (graph[x.to].hasLast() && compareEdges(x, graph[x.to].S.top(), id)) {//edge < graph[edge.to].S.top()) {//
+        return false;
+    }
+    return true;
+}
 
+void concurrentAlgorithm() {
+    VerticleType u;
+    bool emptyQueue = false;
+
+    while (!emptyQueue) {
+        { // RAII
+            std::lock_guard<std::mutex> lock(Qmutex);
+
+            if (Q.empty()) {
+                if (R.empty()) {
+                    emptyQueue = true;
+                }
+                else {
+                    while (!R.empty()) {
+                        Q.push(R.front());
+                        R.pop();
+                    }
+                }
+            }
+            else {
+                u = Q.front();
+                Q.pop();
+            }
+        } // RAII
+
+        if (emptyQueue) {
+            return;
+        }
+
+        while (graph[u].T.size() < graph[u].b_value) {
+            auto x_id = findX(u);
+            if (x_id < 0) {
+                break;
+            }
+            else {
+                { // RAII
+                    auto x = graph[u].edges[x_id].to;
+                    std::lock_guard<std::mutex> pLock(verticleMutexes[x]);
+                    std::lock_guard<std::mutex> gLock(Gmutex);
+
+                    if (!stillEligible(u, x_id)) {
+                        continue;
+                    }
+
+                    int y = -1;
+                    if (graph[x].hasLast()) {
+                        y = graph[x].S.top().to;
+                        graph[x].S.pop();
+                    }
+
+                    graph[x].S.push(Edge(u, graph[u].edges[x_id].weight));
+                    graph[u].T.insert(x);
+
+                    if (y >= 0) {
+                        graph[y].T.erase(x);
+                        std::lock_guard<std::mutex> qLock(Qmutex);
+                        R.push(y);
+                    }
+                } // RAII
+            }
+        }
+    }
+}
+
+void concurrentAdministrator(unsigned int b_method, int thread_count) {
+    auto max_thread_count = thread_count > V.size() ? V.size() : thread_count;
+
+    for (auto v : V) {
+        Q.push(v);
+        graph[v].b_value = bvalue(b_method, v);
+    }
+
+    std::vector<std::thread> threads;
+    for (int i = 0; i < max_thread_count; ++i) {
+        threads.push_back(std::thread{concurrentAlgorithm});
+        std::cout << i << " ";
+    }
+    std::cout << '\n';
+
+    std::for_each(threads.begin(), threads.end(), [](std::thread &t)
+    {
+        t.join();
+    });
+
+    unsigned int res = 0;
+
+    for (auto& v : graph) {
+        while (!v.second.S.empty()) {
+            res += v.second.S.top().weight;
+            v.second.S.pop();
+        }
+        v.second.T.clear();
+    }
+
+    std::cout << res / 2 << std::endl;
+}
+
+unsigned int sequentialAlgorithm(unsigned int b_method) {
     for (auto v : V) {
         Q.push(v);
         graph[v].b_value = bvalue(b_method, v);
@@ -204,16 +320,9 @@ int main(int argc, char* argv[]) {
     parseFile(input_filename);
 
     for (int b_method = 0; b_method < b_limit + 1; b_method++) {
-        // this is just to show the blimit with which the program is linked
-        //std::cerr << "bvalue node 44: " << bvalue(b_method, 44) << std::endl;
-
         std::cerr << "B = " << b_method << std::endl;
-        sequentialAlgorithm(b_method);
-        //debug << std::endl;
+        //sequentialAlgorithm(b_method);
 
-        // TODO: implement b-adorators here
-
-        // fake result
-        //std::cout << 42 << std::endl;
+        concurrentAdministrator(b_method, thread_count);
     }
 }
