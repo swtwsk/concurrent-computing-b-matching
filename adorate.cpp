@@ -72,17 +72,20 @@ inline bool compareEdges(const Edge& u_v, const Edge& v_last, int u) {
     return u_v.weight == v_last.weight ? u < v_last.to : u_v.weight < v_last.weight;
 }
 
-inline int findX(VerticleType id) {
+inline int findX(VerticleType u) {
     Edge eligible = Edge(-1, 0);
     VerticleType x = -1;
 
     std::lock_guard<std::mutex> lock(Gmutex);
 
-    for (auto i = 0; i < graph[id].edges.size(); ++i) {
-        auto& edge = graph[id].edges[i];
+    for (auto i = 0; i < graph[u].edges.size(); ++i) {
+        auto& edge = graph[u].edges[i];
+        if (graph[edge.to].b_value == 0) {
+            continue;
+        }
 
-        if (graph[id].T.find(edge.to) == graph[id].T.end()) {
-            if (graph[edge.to].hasLast() && compareEdges(edge, graph[edge.to].S.top(), id)) {//edge < graph[edge.to].S.top()) {//
+        if (graph[u].T.find(edge.to) == graph[u].T.end()) {
+            if (graph[edge.to].hasLast() && compareEdges(edge, graph[edge.to].S.top(), u)) {//edge < graph[edge.to].S.top()) {//
                 continue;
             }
             if (eligible < edge) {
@@ -205,8 +208,10 @@ void concurrentAdministrator(unsigned int b_method, int thread_count) {
 
 unsigned int sequentialAlgorithm(unsigned int b_method) {
     for (auto v : V) {
-        Q.push(v);
         graph[v].b_value = bvalue(b_method, v);
+        if (graph[v].b_value != 0) {
+            Q.push(v);
+        }
     }
 
     while (!Q.empty()) {
@@ -321,8 +326,8 @@ int main(int argc, char* argv[]) {
 
     for (int b_method = 0; b_method < b_limit + 1; b_method++) {
         std::cerr << "B = " << b_method << std::endl;
-        //sequentialAlgorithm(b_method);
+        sequentialAlgorithm(b_method);
 
-        concurrentAdministrator(b_method, thread_count);
+        //concurrentAdministrator(b_method, thread_count);
     }
 }
