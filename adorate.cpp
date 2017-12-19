@@ -326,8 +326,8 @@ int main(int argc, char* argv[]) {
 
     for (int b_method = 0; b_method < b_limit + 1; b_method++) {
         std::cerr << "B = " << b_method << std::endl;
-        sequentialAlgorithm(b_method);
+        //sequentialAlgorithm(b_method);
 
-        //concurrentAdministrator(b_method, thread_count);
+        concurrentAdministrator(b_method, thread_count);
     }
 }
