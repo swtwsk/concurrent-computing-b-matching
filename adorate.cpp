@@ -63,15 +63,18 @@ inline bool compareEdges(const Edge& u_v, const Edge& v_last, int u) {
     return u_v.weight == v_last.weight ? u < v_last.to : u_v.weight < v_last.weight;
 }
 
-inline int findX(VerticleType id) {
+inline int findX(VerticleType u) {
     Edge eligible = Edge(-1, 0);
     VerticleType x = -1;
 
-    for (auto i = 0; i < graph[id].edges.size(); ++i) {
-        auto& edge = graph[id].edges[i];
+    for (auto i = 0; i < graph[u].edges.size(); ++i) {
+        auto& edge = graph[u].edges[i];
+        if (graph[edge.to].b_value == 0) {
+            continue;
+        }
 
-        if (graph[id].T.find(edge.to) == graph[id].T.end()) {
-            if (graph[edge.to].hasLast() && compareEdges(edge, graph[edge.to].S.top(), id)) {//edge < graph[edge.to].S.top()) {//
+        if (graph[u].T.find(edge.to) == graph[u].T.end()) {
+            if (graph[edge.to].hasLast() && compareEdges(edge, graph[edge.to].S.top(), u)) {//edge < graph[edge.to].S.top()) {//
                 continue;
             }
             if (eligible < edge) {
@@ -89,8 +92,10 @@ unsigned int sequentialAlgorithm(unsigned int b_method) {
     std::queue<int> R;
 
     for (auto v : V) {
-        Q.push(v);
         graph[v].b_value = bvalue(b_method, v);
+        if (graph[v].b_value != 0) {
+            Q.push(v);
+        }
     }
 
     while (!Q.empty()) {
