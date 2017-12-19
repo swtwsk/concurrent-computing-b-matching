@@ -131,17 +131,10 @@ unsigned int sequentialAlgorithm(unsigned int b_method) {
     unsigned int res = 0;
 
     for (auto& v : graph) {
-        /*debug << v.first << ":\n T: ";
-        for (auto t : v.second.T) {
-            debug << "(" << t.first << ", " << t.second << "); ";
-        }
-        debug << "\n S: ";*/
         while (!v.second.S.empty()) {
-            //debug << v.second.S.top().to << " ";
             res += v.second.S.top().weight;
             v.second.S.pop();
         }
-        //debug << std::endl;
         v.second.T.clear();
     }
 
