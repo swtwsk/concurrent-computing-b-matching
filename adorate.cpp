@@ -104,7 +104,15 @@ void sequentialAlgorithm(unsigned int b_method) {
                 break;
             }
             else {
-                u_vert.T.insert(u_vert.edges[x_id].to);
+                auto x = u_vert.edges[x_id].to;
+                if (graph[x].hasLast()) {
+                    auto y = graph[x].S.top();
+                    graph[x].S.pop();
+                    u_vert.T.erase(y.to);
+                    R.push(y.to);
+                }
+                graph[x].S.push(Edge(u, u_vert.edges[x_id].weight));
+                u_vert.T.insert(x);
             }
         }
 
@@ -125,7 +133,7 @@ void sequentialAlgorithm(unsigned int b_method) {
         v.second.T.clear();
     }
 
-    debug << "Done" << std::endl;
+    //debug << "Done" << std::endl;
 }
 
 inline void createVerticle(int id) {
