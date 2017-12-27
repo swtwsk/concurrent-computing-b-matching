@@ -88,8 +88,6 @@ inline VerticleType findX(VerticleType u) {
 	VerticleType x = -1;
 	auto u_id = graph[u];
 
-	std::lock_guard<std::mutex> lock(TMutexes[u]);
-
 	for (auto i = 0; i < edges[u_id].size(); ++i) {
 		auto& edge = edges[u_id][i];
 		if (b_value[graph[edge.to]] == 0) {
@@ -97,8 +95,11 @@ inline VerticleType findX(VerticleType u) {
 		}
 
 		if (T[u_id].find(edge.to) == T[u_id].end()) {
-			if (hasLast(edge.to) && compareEdges(edge, S[graph[edge.to]].top(), u)) {
-				continue;
+			{
+				std::lock_guard<std::mutex> s_lock(SMutexes[edge.to]);
+				if (hasLast(edge.to) && compareEdges(edge, S[graph[edge.to]].top(), u)) {
+					continue;
+				}
 			}
 			if (eligible < edge) {
 				eligible = edge;
@@ -128,15 +129,12 @@ bool stillEligible(VerticleType id, VerticleType x_ind) {
 
 void concurrentAlgorithm() {
 	VerticleType u;
-	bool emptyQueue = false;
-
-	while (!emptyQueue) {
+	while (true) {
 		{
-			std::lock_guard<std::mutex> lock(Qmutex);
+			std::lock_guard<std::mutex> q_lock(Qmutex);
 
 			if (Q.empty()) {
 				if (R.empty()) {
-					emptyQueue = true;
 					return;
 				}
 				else {
@@ -153,6 +151,7 @@ void concurrentAlgorithm() {
 		} // RAII
 
 		auto u_ind = graph[u];
+		std::lock_guard<std::mutex> u_lock(TMutexes[u]);
 		while (T[u_ind].size() < b_value[u_ind]) {
 			auto x_in_u_ind = findX(u);
 			if (x_in_u_ind < 0) {
@@ -161,32 +160,32 @@ void concurrentAlgorithm() {
 			else { // makeSuitor(u, x)
 				VerticleType y = -1;
 
-				{ //RAII - lock x
-					auto x = edges[u_ind][x_in_u_ind].to;
-					auto x_ind = graph[x];
+				auto x = edges[u_ind][x_in_u_ind].to;
+				auto x_ind = graph[x];
 
+				{ //RAII - lock x
 					std::lock_guard<std::mutex> x_lock(SMutexes[x]);
 
-					{ // RAII - lock T[u]
-						std::lock_guard<std::mutex> u_lock(TMutexes[u]);
-						if (!stillEligible(u, x_in_u_ind)) {
-							continue;
-						}
-						//debug << ' ' << x << " - " << x_ind << ", S.size=" << S[x_ind].size() << '\n';
-						if (hasLast(x)) {
-							y = S[x_ind].top().to;
-							S[x_ind].pop();
-						}
-
-						S[x_ind].push(Edge(u, edges[u_ind][x_in_u_ind].weight));
-						T[u_ind].insert(x);
+					if (!stillEligible(u, x_in_u_ind)) {
+						continue;
+					}
+					//debug << ' ' << x << " - " << x_ind << ", S.size=" << S[x_ind].size() << '\n';
+					if (hasLast(x)) {
+						y = S[x_ind].top().to;
+						S[x_ind].pop();
 					}
 
-					if (y >= 0) {
-						{
-							std::lock_guard<std::mutex> y_lock(TMutexes[y]);
-							T[graph[y]].erase(x);
-						}
+					S[x_ind].push(Edge(u, edges[u_ind][x_in_u_ind].weight));
+					T[u_ind].insert(x);
+				}
+
+				if (y >= 0) {
+					{
+						std::lock_guard<std::mutex> y_lock(TMutexes[y]);
+						T[graph[y]].erase(x);
+					}
+
+					{
 						std::lock_guard<std::mutex> q_lock(Qmutex);
 						R.push(y);
 					}
