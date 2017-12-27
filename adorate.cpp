@@ -41,7 +41,7 @@ using TSet = std::set<VerticleType>;
 using SQue = std::priority_queue<Edge, std::vector<Edge>, Edge::Comparator>;
 
 std::map<VerticleType, VerticleType> graph; // map from vertex id to vector index
-											/* VERTEXES REPRESENTATION: */
+/* VERTEXES REPRESENTATION: */
 std::vector<EdgeCont> edges;
 std::vector<TSet> T;
 std::vector<SQue> S;
@@ -59,6 +59,18 @@ inline bool hasLast(VerticleType v) {
 std::queue<VerticleType> Q;
 std::queue<VerticleType> R;
 
+/* MUTEXES */
+struct mutex_wrapper : std::mutex
+{
+	mutex_wrapper() = default;
+	mutex_wrapper(mutex_wrapper const&) noexcept : std::mutex() {}
+	bool operator==(mutex_wrapper const&other) noexcept { return this == &other; }
+};
+
+std::map<VerticleType, mutex_wrapper> SMutexes;
+std::map<VerticleType, mutex_wrapper> TMutexes;
+std::mutex Qmutex;
+
 bool compareVerticles(const VerticleType a, const VerticleType b) {
 	return max_weight[graph[a]] > max_weight[graph[b]];
 }
@@ -75,6 +87,8 @@ inline VerticleType findX(VerticleType u) {
 	Edge eligible = Edge(-1, 0);
 	VerticleType x = -1;
 	auto u_id = graph[u];
+
+	std::lock_guard<std::mutex> lock(TMutexes[u]);
 
 	for (auto i = 0; i < edges[u_id].size(); ++i) {
 		auto& edge = edges[u_id][i];
@@ -94,6 +108,148 @@ inline VerticleType findX(VerticleType u) {
 	}
 
 	return x;
+}
+
+bool stillEligible(VerticleType id, VerticleType x_ind) {
+	auto v_ind = graph[id];
+	auto& x = edges[v_ind][x_ind];
+	
+	if (T[v_ind].find(x.to) != T[v_ind].end()) {
+		return false;
+	}
+	//std::lock_guard<std::mutex> lock(SMutexes[graph[x.to]]);
+	//^no need as I've already mutexed it
+	if (hasLast(x.to) && compareEdges(x, S[graph[x.to]].top(), id)) {
+		return false;
+	}
+
+	return true;
+}
+
+void concurrentAlgorithm() {
+	VerticleType u;
+	bool emptyQueue = false;
+
+	while (!emptyQueue) {
+		{
+			std::lock_guard<std::mutex> lock(Qmutex);
+
+			if (Q.empty()) {
+				if (R.empty()) {
+					emptyQueue = true;
+					return;
+				}
+				else {
+					while (!R.empty()) {
+						Q.push(R.front());
+						R.pop();
+					}
+				}
+			}
+			else {
+				u = Q.front();
+				Q.pop();
+			}
+		} // RAII
+
+		auto u_ind = graph[u];
+		while (T[u_ind].size() < b_value[u_ind]) {
+			auto x_in_u_ind = findX(u);
+			if (x_in_u_ind < 0) {
+				break;
+			}
+			else { // makeSuitor(u, x)
+				VerticleType y = -1;
+
+				{ //RAII - lock x
+					auto x = edges[u_ind][x_in_u_ind].to;
+					auto x_ind = graph[x];
+
+					std::lock_guard<std::mutex> x_lock(SMutexes[x]);
+
+					{ // RAII - lock T[u]
+						std::lock_guard<std::mutex> u_lock(TMutexes[u]);
+						if (!stillEligible(u, x_in_u_ind)) {
+							continue;
+						}
+						//debug << ' ' << x << " - " << x_ind << ", S.size=" << S[x_ind].size() << '\n';
+						if (hasLast(x)) {
+							y = S[x_ind].top().to;
+							S[x_ind].pop();
+						}
+
+						S[x_ind].push(Edge(u, edges[u_ind][x_in_u_ind].weight));
+						T[u_ind].insert(x);
+					}
+
+					if (y >= 0) {
+						{
+							std::lock_guard<std::mutex> y_lock(TMutexes[y]);
+							T[graph[y]].erase(x);
+						}
+						std::lock_guard<std::mutex> q_lock(Qmutex);
+						R.push(y);
+					}
+				}
+			}
+		}
+	}
+}
+
+void countBValue(int nr, unsigned int b_method,
+	std::vector<std::vector<VerticleType>>& bValueToCount) {
+
+	for (auto v : bValueToCount[nr]) {
+		b_value[graph[v]] = bvalue(b_method, v);
+	}
+}
+
+void concurrentAdministrator(unsigned int b_method, int max_thread_count, 
+	std::vector<std::vector<VerticleType>>& bValueToCount) {
+
+	// count b-values
+	std::vector<std::thread> threads;
+	for (auto j = 0; j < max_thread_count; ++j) {
+		threads.push_back(std::thread{ [j, b_method, &bValueToCount] {
+			countBValue(j, b_method, bValueToCount); } });
+	}
+	std::for_each(threads.begin(), threads.end(), [](std::thread &t)
+	{
+		t.join();
+	});
+	threads.clear(); // <- to beautify
+
+	//debug << "b-values counted\n";
+
+	for (auto v : V) {
+		if (b_value[graph[v]] != 0) {
+			Q.push(v);
+		}
+	}
+
+	for (int i = 0; i < max_thread_count; ++i) {
+		threads.push_back(std::thread{ concurrentAlgorithm });
+	}
+
+	std::for_each(threads.begin(), threads.end(), [](std::thread &t)
+	{
+		t.join();
+	});
+
+	//debug << "after concurrent algorithm\n";
+
+	unsigned int res = 0;
+
+	for (auto& v : graph) {
+		auto& Sv = S[v.second];
+		while (!Sv.empty()) {
+			res += Sv.top().weight;
+			Sv.pop();
+		}
+		T[v.second].clear();
+	}
+
+	std::cout << res / 2 << std::endl;
 }
 
 unsigned int sequentialAlgorithm(unsigned int b_method) {
@@ -161,8 +317,9 @@ unsigned int sequentialAlgorithm(unsigned int b_method) {
 
 inline void createVerticle(VerticleType id) {
 	if (graph.find(id) == graph.end()) {
-		auto ind = edges.size();
-		graph.insert(std::make_pair(id, ind));
+		graph.emplace(id, edges.size());
+		SMutexes.emplace(id, mutex_wrapper());
+		TMutexes.emplace(id, mutex_wrapper());
 
 		edges.push_back(EdgeCont());
 		T.push_back(TSet());
@@ -236,9 +393,22 @@ int main(int argc, char* argv[]) {
 	parseFile(input_filename);
 	//printGraph();
 
-	for (int b_method = 0; b_method < b_limit + 1; b_method++) {
-		std::cerr << "B = " << b_method << std::endl;
+	auto max_thread_count = thread_count > V.size() ? V.size() : thread_count;
 
-		sequentialAlgorithm(b_method);
+	std::vector<std::vector<VerticleType>> bValueToCount;
+	bValueToCount.resize(max_thread_count);
+
+	for (auto j = 0; j < V.size(); j += max_thread_count) {
+		auto max_i = std::min(max_thread_count, V.size() - j);
+		for (auto i = 0; i < max_i; ++i) {
+			bValueToCount[i].push_back(V[j + i]);
+		}
+	}
+
+	for (int b_method = 0; b_method < b_limit + 1; b_method++) {
+		//std::cerr << "B = " << b_method << std::endl;
+
+		//sequentialAlgorithm(b_method);
+		concurrentAdministrator(b_method, max_thread_count, bValueToCount);
 	}
 }
