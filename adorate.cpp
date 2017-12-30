@@ -11,6 +11,8 @@
 #include <thread>
 #include <mutex>
 
+#include <chrono>
+
 #include "blimit.hpp"
 
 #define debug std::cout
@@ -206,17 +208,23 @@ void countBValue(int nr, unsigned int b_method,
 void concurrentAdministrator(unsigned int b_method, int max_thread_count,
     std::vector<std::vector<VerticleType>>& bValueToCount) {
 
-    // count b-values
     std::vector<std::thread> threads;
-    for (auto j = 0; j < max_thread_count; ++j) {
-        threads.push_back(std::thread{ [j, b_method, &bValueToCount] {
-            countBValue(j, b_method, bValueToCount); } });
+    // count b-values
+    if (max_thread_count > 0) {
+        for (auto j = 0; j < max_thread_count; ++j) {
+            threads.push_back(std::thread{ [j, b_method, &bValueToCount] {
+                countBValue(j, b_method, bValueToCount); } });
+        }
+        std::for_each(threads.begin(), threads.end(), [](std::thread &t)
+        {
+            t.join();
+        });
     }
-    std::for_each(threads.begin(), threads.end(), [](std::thread &t)
-    {
-        t.join();
-    });
-    //threads.clear(); // <- to beautify
+    else {
+        for (auto v : V) {
+            b_value[graph[v]] = bvalue(b_method, v);
+        }
+    }
 
     for (auto v : V) {
         if (b_value[graph[v]] != 0) {
@@ -226,8 +234,10 @@ void concurrentAdministrator(unsigned int b_method, int max_thread_count,
 
     for (int i = 0; i < max_thread_count; ++i) {
         threads[i] = std::thread{ concurrentAlgorithm };
-        //threads.push_back(std::thread{ concurrentAlgorithm });
     }
+
+    concurrentAlgorithm();
+
     std::for_each(threads.begin(), threads.end(), [](std::thread &t)
     {
         t.join();
@@ -350,7 +360,6 @@ void parseFile(std::string &input_filename) {
         }
 
         for (auto& v : graph) {
-            //v.second.findMaxWeight();
             std::sort(edges[v.second].begin(), edges[v.second].end(), compareEdgesForSort);
             max_weight[v.second] = edges[v.second].begin()->weight;
             V.push_back(v.first);
@@ -362,37 +371,27 @@ void parseFile(std::string &input_filename) {
     }
 }
 
-void printGraph() {
-    for (auto& v : graph) {
-        debug << v.first << " - " << v.second << ":";
-        for (auto& e : edges[v.second]) {
-            debug << " (" << e.to << ", " << e.weight << ");";
-        }
-        debug << '\n';
-    }
-    debug << std::endl;
-}
-
 int main(int argc, char* argv[]) {
     if (argc != 4) {
         std::cerr << "usage: " << argv[0] << " thread-count inputfile b-limit" << std::endl;
         return 1;
     }
 
+    std::chrono::high_resolution_clock::time_point parse_t1 = std::chrono::steady_clock::now();
+
     int thread_count = std::stoi(argv[1]);
     int b_limit = std::stoi(argv[3]);
     std::string input_filename{ argv[2] };
     parseFile(input_filename);
 
-    if (thread_count == 1) {
-        for (int b_method = 0; b_method < b_limit + 1; b_method++) {
-            sequentialAlgorithm(b_method);
-        }
-    }
-    else {
-        auto max_thread_count = (thread_count - 1) > V.size() ? V.size() : (thread_count - 1);
+    std::chrono::high_resolution_clock::time_point parse_t2 = std::chrono::steady_clock::now();
+    auto durationParsing = std::chrono::duration_cast<std::chrono::milliseconds> (parse_t2 - parse_t1).count();
+    debug << durationParsing << std::endl;
 
-        std::vector<std::vector<VerticleType>> bValueToCount;
+    auto max_thread_count = (thread_count - 1) > V.size() ? V.size() : (thread_count - 1);
+
+    std::vector<std::vector<VerticleType>> bValueToCount;
+    if (max_thread_count > 0) {
         bValueToCount.resize(max_thread_count);
 
         for (auto j = 0; j < V.size(); j += max_thread_count) {
@@ -401,9 +400,14 @@ int main(int argc, char* argv[]) {
                 bValueToCount[i].push_back(V[j + i]);
             }
         }
+    }
 
-        for (int b_method = 0; b_method < b_limit + 1; b_method++) {
-            concurrentAdministrator(b_method, max_thread_count, bValueToCount);
-        }
+    for (int b_method = 0; b_method < b_limit + 1; b_method++) {
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::steady_clock::now();
+        concurrentAdministrator(b_method, max_thread_count, bValueToCount);
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::steady_clock::now();
+
+        auto concurrentDuration = std::chrono::duration_cast<std::chrono::milliseconds> (t2 - t1).count();
+        debug << b_method << ' ' << concurrentDuration << '\n';
     }
 }
