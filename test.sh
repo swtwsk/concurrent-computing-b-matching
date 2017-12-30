@@ -18,7 +18,7 @@ then
 	#ITERATE OVER THREAD_COUNT
 	for thread in `seq 1 $max_thread_count`
 	do
-		./$prog $thread $input_file $b_limit 1>outs/${nazwa}${thread}.out 2>times/${nazwa}${thread}.tim
+		time ./$prog $thread $input_file $b_limit 1>outs/${nazwa}${thread}.out 2>times/${nazwa}${thread}.tim
 		if [ $thread -gt 1 ]
 		then
 			last_thread=$[thread - 1]

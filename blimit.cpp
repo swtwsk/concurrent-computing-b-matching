@@ -26,3 +26,9 @@ unsigned int bvalue(unsigned int method, unsigned long node_id) {
     case 1: return 7;
     }
 }
+
+/*unsigned int bvalue(unsigned int method, unsigned long node_id) {
+    if(method<15)
+        return method*10+1;
+    return (2 * node_id + method) % 100;
+}*/
