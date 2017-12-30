@@ -377,16 +377,16 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::chrono::high_resolution_clock::time_point parse_t1 = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point parse_t1 = std::chrono::steady_clock::now();
 
     int thread_count = std::stoi(argv[1]);
     int b_limit = std::stoi(argv[3]);
     std::string input_filename{ argv[2] };
     parseFile(input_filename);
 
-    std::chrono::high_resolution_clock::time_point parse_t2 = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point parse_t2 = std::chrono::steady_clock::now();
     auto durationParsing = std::chrono::duration_cast<std::chrono::milliseconds> (parse_t2 - parse_t1).count();
-    debug << durationParsing << std::endl;
+    std::cerr << durationParsing << std::endl;
 
     auto max_thread_count = (thread_count - 1) > V.size() ? V.size() : (thread_count - 1);
 
@@ -403,11 +403,11 @@ int main(int argc, char* argv[]) {
     }
 
     for (int b_method = 0; b_method < b_limit + 1; b_method++) {
-        std::chrono::high_resolution_clock::time_point t1 = std::chrono::steady_clock::now();
+        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
         concurrentAdministrator(b_method, max_thread_count, bValueToCount);
-        std::chrono::high_resolution_clock::time_point t2 = std::chrono::steady_clock::now();
+        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 
         auto concurrentDuration = std::chrono::duration_cast<std::chrono::milliseconds> (t2 - t1).count();
-        debug << b_method << ' ' << concurrentDuration << '\n';
+        std::cerr << b_method << ' ' << concurrentDuration << '\n';
     }
 }

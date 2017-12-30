@@ -11,13 +11,18 @@ then
 	nazwa=$(basename $input_file .txt)
 	failed=0
 
+	#CREATE NEW DIRECTIORIES FOR OUTPUTS
+	mkdir outs
+	mkdir times
+
+	#ITERATE OVER THREAD_COUNT
 	for thread in `seq 1 $max_thread_count`
 	do
-		./$prog $thread $input_file $b_limit > ${nazwa}${thread}.out
+		./$prog $thread $input_file $b_limit 1>outs/${nazwa}${thread}.out 2>times/${nazwa}${thread}.tim
 		if [ $thread -gt 1 ]
 		then
 			last_thread=$[thread - 1]
-			diff=$(diff ${nazwa}${last_thread}.out ${nazwa}${thread}.out)
+			diff=$(diff outs/${nazwa}${last_thread}.out outs/${nazwa}${thread}.out)
 			if [ "$diff" != "" ]
 			then
 				echo "test failed in $thread"
@@ -30,13 +35,10 @@ then
 		fi
 	done
 
-	if [ $failed -eq 0 ]
-	then
-		for file_name in `seq 1 $max_thread_count`
-		do
-			rm ${nazwa}${file_name}.out
-		done
-	fi
+	#if [ $failed -eq 0 ]
+	#then
+	#	rm -rf outs
+	#fi
 else
 	echo "USAGE: ./test.sh program-name thread-count input-file limit-b"
 fi
