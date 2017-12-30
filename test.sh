@@ -22,7 +22,11 @@ then
 			then
 				echo "test failed in $thread"
 				failed=$[failed + 1]
+			else
+				echo "test $thread OK"
 			fi
+		else
+			echo "test $thread OK"
 		fi
 	done
 
