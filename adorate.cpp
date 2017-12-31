@@ -22,10 +22,6 @@ struct Edge {
 
     explicit Edge(VerticleType to, WeightType weight) : to(to), weight(weight) {};
 
-    constexpr bool operator<(const Edge& other) {
-        return weight == other.weight ? to < other.to : weight < other.weight;
-    }
-
     struct Comparator {
         constexpr bool operator() (const Edge& a, const Edge& b) const {
             return a.weight == b.weight ? a.to > b.to : a.weight > b.weight;
@@ -74,7 +70,7 @@ bool compareVerticles(const VerticleType a, const VerticleType b) {
 }
 
 bool compareEdgesForSort(const Edge& a, const Edge& b) {
-    return b < a;
+    return (a.weight == b.weight ? a.to > b.to : a.weight > b.weight);
 }
 
 inline bool compareEdges(const Edge& u_v, const Edge& v_last, VerticleType u) {
