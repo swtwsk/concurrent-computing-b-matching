@@ -11,11 +11,7 @@
 #include <thread>
 #include <mutex>
 
-#include <chrono>
-
 #include "blimit.hpp"
-
-#define debug std::cout
 
 using VerticleType = int;
 using WeightType = unsigned int;
@@ -43,7 +39,7 @@ using TSet = std::set<VerticleType>;
 using SQue = std::priority_queue<Edge, std::vector<Edge>, Edge::Comparator>;
 
 std::map<VerticleType, VerticleType> graph; // map from vertex id to vector index
-                                            /* VERTEXES REPRESENTATION: */
+/* VERTEXES REPRESENTATION: */
 std::vector<EdgeCont> edges;
 std::vector<TSet> T;
 std::vector<SQue> S;
@@ -90,7 +86,7 @@ inline VerticleType findX(VerticleType u) {
     VerticleType x = -1;
     auto u_id = graph[u];
 
-    for (auto i = 0; i < edges[u_id].size(); ++i) {
+    for (EdgeCont::size_type i = 0; i < edges[u_id].size(); ++i) {
         auto& edge = edges[u_id][i];
         if (b_value[graph[edge.to]] == 0) {
             continue;
@@ -120,8 +116,6 @@ bool stillEligible(VerticleType id, VerticleType x_ind) {
     if (T[v_ind].find(x.to) != T[v_ind].end()) {
         return false;
     }
-    //std::lock_guard<std::mutex> lock(SMutexes[graph[x.to]]);
-    //^no need as I've already mutexed it
     if (hasLast(x.to) && compareEdges(x, S[graph[x.to]].top(), id)) {
         return false;
     }
@@ -232,6 +226,7 @@ void concurrentAdministrator(unsigned int b_method, int max_thread_count,
         }
     }
 
+    // find adorators
     for (int i = 0; i < max_thread_count; ++i) {
         threads[i] = std::thread{ concurrentAlgorithm };
     }
@@ -243,66 +238,7 @@ void concurrentAdministrator(unsigned int b_method, int max_thread_count,
         t.join();
     });
 
-    unsigned int res = 0;
-
-    for (auto& v : graph) {
-        auto& Sv = S[v.second];
-        while (!Sv.empty()) {
-            res += Sv.top().weight;
-            Sv.pop();
-        }
-        T[v.second].clear();
-    }
-
-    std::cout << res / 2 << std::endl;
-}
-
-void sequentialAlgorithm(unsigned int b_method) {
-    for (auto v : V) {
-        b_value[graph[v]] = bvalue(b_method, v);
-        if (b_value[graph[v]] != 0) {
-            Q.push(v);
-        }
-    }
-
-    while (!Q.empty()) {
-        auto u = Q.front();
-        auto u_ind = graph[u];
-        Q.pop();
-
-        while (T[u_ind].size() < b_value[u_ind]) {
-            auto x_in_u_ind = findX(u);
-            if (x_in_u_ind < 0) {
-                break;
-            }
-            else { // makeSuitor(u, x)
-                auto x = edges[u_ind][x_in_u_ind].to;
-                auto x_ind = graph[x];
-                VerticleType y = -1;
-
-                if (hasLast(x)) {
-                    y = S[x_ind].top().to;
-                    S[x_ind].pop();
-                }
-
-                S[x_ind].push(Edge(u, edges[u_ind][x_in_u_ind].weight));
-                T[u_ind].insert(x);
-
-                if (y >= 0) {
-                    T[graph[y]].erase(x);
-                    R.push(y);
-                }
-            }
-        }
-
-        if (Q.empty()) {
-            while (!R.empty()) {
-                Q.push(R.front());
-                R.pop();
-            }
-        }
-    }
-
+    // count weight of b-matching
     unsigned int res = 0;
 
     for (auto& v : graph) {
@@ -377,37 +313,26 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::chrono::steady_clock::time_point parse_t1 = std::chrono::steady_clock::now();
-
     int thread_count = std::stoi(argv[1]);
     int b_limit = std::stoi(argv[3]);
     std::string input_filename{ argv[2] };
     parseFile(input_filename);
 
-    std::chrono::steady_clock::time_point parse_t2 = std::chrono::steady_clock::now();
-    auto durationParsing = std::chrono::duration_cast<std::chrono::milliseconds> (parse_t2 - parse_t1).count();
-    std::cerr << durationParsing << std::endl;
-
-    auto max_thread_count = (thread_count - 1) > V.size() ? V.size() : (thread_count - 1);
+    auto max_thread_count = (unsigned int) (thread_count - 1) > V.size() ? V.size() : (thread_count - 1);
 
     std::vector<std::vector<VerticleType>> bValueToCount;
     if (max_thread_count > 0) {
         bValueToCount.resize(max_thread_count);
 
-        for (auto j = 0; j < V.size(); j += max_thread_count) {
+        for (std::vector<VerticleType>::size_type j = 0; j < V.size(); j += max_thread_count) {
             auto max_i = std::min(max_thread_count, V.size() - j);
-            for (auto i = 0; i < max_i; ++i) {
+            for (unsigned int i = 0; i < max_i; ++i) {
                 bValueToCount[i].push_back(V[j + i]);
             }
         }
     }
 
     for (int b_method = 0; b_method < b_limit + 1; b_method++) {
-        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
         concurrentAdministrator(b_method, max_thread_count, bValueToCount);
-        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-
-        auto concurrentDuration = std::chrono::duration_cast<std::chrono::milliseconds> (t2 - t1).count();
-        std::cerr << b_method << ' ' << concurrentDuration << '\n';
     }
 }
