@@ -74,7 +74,7 @@ bool compareVerticles(const VerticleType a, const VerticleType b) {
 }
 
 bool compareEdgesForSort(const Edge& a, const Edge& b) {
-    return a.weight > b.weight;
+    return b < a;
 }
 
 inline bool compareEdges(const Edge& u_v, const Edge& v_last, VerticleType u) {
@@ -82,8 +82,6 @@ inline bool compareEdges(const Edge& u_v, const Edge& v_last, VerticleType u) {
 }
 
 inline VerticleType findX(VerticleType u) {
-    Edge eligible = Edge(-1, 0);
-    VerticleType x = -1;
     auto u_id = graph[u];
 
     for (EdgeCont::size_type i = 0; i < edges[u_id].size(); ++i) {
@@ -98,15 +96,14 @@ inline VerticleType findX(VerticleType u) {
                 if (hasLast(edge.to) && compareEdges(edge, S[graph[edge.to]].top(), u)) {
                     continue;
                 }
-            }
-            if (eligible < edge) {
-                eligible = edge;
-                x = i;
+                else {
+                    return i;
+                }
             }
         }
     }
 
-    return x;
+    return -1;
 }
 
 bool stillEligible(VerticleType id, VerticleType x_ind) {
